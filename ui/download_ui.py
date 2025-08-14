@@ -13,7 +13,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 try:
-    from core.downloader import download_video
+    from core.downloader import download_video, check_ffmpeg_available
     from utils.system_optimizer import SystemOptimizer
 except ImportError:
     # Fallback for when running as script
@@ -24,8 +24,8 @@ except ImportError:
     if utils_dir not in sys.path:
         sys.path.insert(0, utils_dir)
     try:
-        from downloader import download_video
-        from system_optimizer import SystemOptimizer
+        from downloader import download_video, check_ffmpeg_available  # type: ignore
+        from system_optimizer import SystemOptimizer  # type: ignore
     except ImportError:
         print("Error: Could not import required modules")
         print("Make sure you're running from the video_downloader_tool directory")
@@ -36,11 +36,12 @@ class VideoDownloaderApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("🎥 Video Downloader Tool")
-        self.geometry("1280x990")
+        self.geometry("1280x950")
         self.resizable(False, False)
         self.configure(bg="#f4f6fb")
         self.active_downloads = 0  # Đếm số video đang tải
         self.active_onedrive_downloads = 0  # Đếm số file OneDrive đang tải
+        self.ffmpeg_available = False
         self.check_dependencies()
         self.create_widgets()
     
@@ -66,6 +67,12 @@ class VideoDownloaderApp(tk.Tk):
         if missing_deps:
             print(f"⚠️ Warning: Missing dependencies: {', '.join(missing_deps)}")
             print("💡 Run: pip install -r requirements.txt")
+
+        # Kiểm tra ffmpeg để điều chỉnh UI cho các chế độ yêu cầu
+        try:
+            self.ffmpeg_available = check_ffmpeg_available()
+        except Exception:
+            self.ffmpeg_available = False
 
     def create_widgets(self):
         # --- Header ---
@@ -117,6 +124,16 @@ class VideoDownloaderApp(tk.Tk):
         path_frame.pack(padx=20, fill="x", pady=(5, 15))
         self.output_entry = tk.Entry(path_frame, font=("Segoe UI", 11), relief="groove", bd=2)
         self.output_entry.pack(side="left", fill="x", expand=True, ipady=5)
+        
+        # Set default save folder
+        try:
+            default_download_dir = r"C:\\Users\\HH\\Downloads"
+            if os.path.isdir(default_download_dir):
+                self.output_entry.delete(0, tk.END)
+                self.output_entry.insert(0, default_download_dir)
+        except Exception:
+            pass
+        
         choose_btn = tk.Button(path_frame, text="Chọn...", command=self.select_output_folder, font=("Segoe UI", 10, "bold"), bg="#3b5998", fg="white", activebackground="#5b7bd5", activeforeground="white", relief="flat", bd=0)
         choose_btn.pack(side="left", padx=8)
 
@@ -135,19 +152,60 @@ class VideoDownloaderApp(tk.Tk):
         url_frame = tk.Frame(left_column, bg="#f4f6fb")
         url_frame.pack(padx=20, fill="x", pady=(0, 10))
         tk.Label(url_frame, text="🔗 Video URL:", font=("Segoe UI", 11, "bold"), bg="#f4f6fb").pack(anchor="w")
-        self.url_entry = tk.Text(url_frame, width=40, height=3, font=("Segoe UI", 11), relief="groove", bd=2)
-        self.url_entry.pack(fill="x", pady=(5, 0), ipady=5)
+        
+        # Create a frame for URL input with line numbers
+        url_input_frame = tk.Frame(url_frame, bg="#f4f6fb")
+        url_input_frame.pack(fill="x", pady=(5, 0))
+        
+        # Line numbers frame (left side)
+        self.line_numbers = tk.Text(url_input_frame, width=4, height=3, font=("Consolas", 10), 
+                                   bg="#f0f0f0", relief="sunken", bd=1, state="disabled")
+        self.line_numbers.pack(side="left", fill="y")
+        
+        # URL input frame (right side)
+        self.url_entry = tk.Text(url_input_frame, width=40, height=3, font=("Segoe UI", 11), 
+                                relief="groove", bd=2, wrap="none")
+        self.url_entry.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        
+        # Scrollbar for URL input
+        url_scrollbar = ttk.Scrollbar(url_input_frame, orient="vertical", command=self.url_entry.yview)
+        self.url_entry.configure(yscrollcommand=url_scrollbar.set)
+        url_scrollbar.pack(side="right", fill="y")
+        
+        # Bind events to update line numbers and handle URL input
+        self.url_entry.bind('<Key>', self.update_line_numbers)
+        self.url_entry.bind('<KeyRelease>', self.update_line_numbers)
+        self.url_entry.bind('<Button-1>', self.update_line_numbers)
+        self.url_entry.bind('<KeyRelease>', self.highlight_current_line)
+        
+        # Initialize line numbers
+        self.update_line_numbers()
 
         # Optimization Mode
         tk.Label(left_column, text="⚡ Chế độ tối ưu hóa:", font=("Segoe UI", 11, "bold"), bg="#f4f6fb").pack(anchor="w", padx=20, pady=(10, 0))
-        self.optimize_mode = tk.StringVar(value="balanced")
+        # Default to quality mode; will fallback to balanced if ffmpeg unavailable
+        self.optimize_mode = tk.StringVar(value="quality")
         optimize_frame = tk.Frame(left_column, bg="#f4f6fb")
         optimize_frame.pack(padx=20, fill="x", pady=(0, 10))
         style = {"font": ("Segoe UI", 9), "bg": "#f4f6fb"}
         tk.Radiobutton(optimize_frame, text="Cân bằng", variable=self.optimize_mode, value="balanced", selectcolor="#e3e6f0", **style).pack(anchor="w", pady=2)
         tk.Radiobutton(optimize_frame, text="Tốc độ cao", variable=self.optimize_mode, value="speed", selectcolor="#e3e6f0", **style).pack(anchor="w", pady=2)
-        tk.Radiobutton(optimize_frame, text="Chất lượng cao", variable=self.optimize_mode, value="quality", selectcolor="#e3e6f0", **style).pack(anchor="w", pady=2)
-        tk.Radiobutton(optimize_frame, text="🚀 Tốc độ + Chất lượng", variable=self.optimize_mode, value="speed_quality", selectcolor="#e3e6f0", **style).pack(anchor="w", pady=2)
+        self.rb_quality = tk.Radiobutton(optimize_frame, text="Chất lượng cao", variable=self.optimize_mode, value="quality", selectcolor="#e3e6f0", **style)
+        self.rb_quality.pack(anchor="w", pady=2)
+        self.rb_speed_quality = tk.Radiobutton(optimize_frame, text="🚀 Tốc độ + Chất lượng", variable=self.optimize_mode, value="speed_quality", selectcolor="#e3e6f0", **style)
+        self.rb_speed_quality.pack(anchor="w", pady=2)
+
+        # Vô hiệu hóa các chế độ yêu cầu ffmpeg nếu ffmpeg không có sẵn
+        if not self.ffmpeg_available:
+            try:
+                self.rb_quality.config(state="disabled")
+                self.rb_speed_quality.config(state="disabled")
+                tk.Label(left_column, text="⚠️ ffmpeg chưa được cài đặt. Các chế độ chất lượng đã bị vô hiệu.", font=("Segoe UI", 9), bg="#f4f6fb", fg="#ff9800").pack(anchor="w", padx=20, pady=(0, 5))
+                # Fallback selection if default was quality
+                if self.optimize_mode.get() in ("quality", "speed_quality"):
+                    self.optimize_mode.set("balanced")
+            except Exception:
+                pass
 
         # Video Cookie file
         self.use_cookies = tk.BooleanVar()
@@ -159,11 +217,27 @@ class VideoDownloaderApp(tk.Tk):
         cookie_btn = tk.Button(cookie_frame, text="Chọn...", command=self.select_cookie_file, font=("Segoe UI", 10, "bold"), bg="#3b5998", fg="white", activebackground="#5b7bd5", activeforeground="white", relief="flat", bd=0)
         cookie_btn.pack(side="left", padx=8)
 
-        # Video Progress Bar
-        self.progress_frame = tk.Frame(left_column, bg="#f4f6fb")
-        self.progress_frame.pack(padx=20, pady=(10, 0), fill="x")
-        self.progress_bar = ttk.Progressbar(self.progress_frame, mode='indeterminate')
-        self.progress_bar.pack(fill="x")
+        # # Video Progress Bar
+        # self.progress_frame = tk.Frame(left_column, bg="#f4f6fb")
+        # self.progress_frame.pack(padx=20, pady=(10, 0), fill="x")
+        
+        # # Main progress bar
+        # self.progress_bar = ttk.Progressbar(self.progress_frame, mode='indeterminate')
+        # self.progress_bar.pack(fill="x")
+        
+        # # Detailed progress info frame
+        # self.detailed_progress_frame = tk.Frame(left_column, bg="#f4f6fb")
+        # self.detailed_progress_frame.pack(padx=20, pady=(5, 0), fill="x")
+        
+        # # Fragment progress label
+        # self.fragment_progress_label = tk.Label(self.detailed_progress_frame, text="", font=("Segoe UI", 9), 
+        #                                       bg="#f4f6fb", fg="#666", justify="left")
+        # self.fragment_progress_label.pack(anchor="w")
+        
+        # # Download speed and ETA label
+        # self.speed_eta_label = tk.Label(self.detailed_progress_frame, text="", font=("Segoe UI", 9), 
+        #                                bg="#f4f6fb", fg="#666", justify="left")
+        # self.speed_eta_label.pack(anchor="w")
 
         # Video Download Button
         self.download_button = tk.Button(left_column, text="🎥 Tải Video", command=self.start_download, font=("Segoe UI", 12, "bold"), bg="#28a745", fg="white", activebackground="#218838", activeforeground="white", relief="flat", bd=0, height=2)
@@ -190,9 +264,35 @@ class VideoDownloaderApp(tk.Tk):
         onedrive_url_frame = tk.Frame(right_column, bg="#f4f6fb")
         onedrive_url_frame.pack(padx=20, fill="x", pady=(0, 10))
         tk.Label(onedrive_url_frame, text="🔗 OneDrive/SharePoint URL:", font=("Segoe UI", 11, "bold"), bg="#f4f6fb").pack(anchor="w")
-        self.onedrive_url_entry = tk.Entry(onedrive_url_frame, font=("Segoe UI", 11), relief="groove", bd=2)
-        self.onedrive_url_entry.pack(fill="x", pady=(5, 0), ipady=5)
         
+        # Create a frame for OneDrive URL input with line numbers
+        onedrive_url_input_frame = tk.Frame(onedrive_url_frame, bg="#f4f6fb")
+        onedrive_url_input_frame.pack(fill="x", pady=(5, 0))
+        
+        # Line numbers frame (left side)
+        self.onedrive_line_numbers = tk.Text(onedrive_url_input_frame, width=4, height=3, font=("Consolas", 10), 
+                                            bg="#f0f0f0", relief="sunken", bd=1, state="disabled")
+        self.onedrive_line_numbers.pack(side="left", fill="y")
+        
+        # OneDrive URL input frame (right side)
+        self.onedrive_url_entry = tk.Text(onedrive_url_input_frame, width=40, height=3, font=("Segoe UI", 11), 
+                                         relief="groove", bd=2, wrap="none")
+        self.onedrive_url_entry.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        
+        # Scrollbar for OneDrive URL input
+        onedrive_url_scrollbar = ttk.Scrollbar(onedrive_url_input_frame, orient="vertical", command=self.onedrive_url_entry.yview)
+        self.onedrive_url_entry.configure(yscrollcommand=onedrive_url_scrollbar.set)
+        onedrive_url_scrollbar.pack(side="right", fill="y")
+        
+        # Bind events to update line numbers and handle OneDrive URL input
+        self.onedrive_url_entry.bind('<Key>', self.update_onedrive_line_numbers)
+        self.onedrive_url_entry.bind('<KeyRelease>', self.update_onedrive_line_numbers)
+        self.onedrive_url_entry.bind('<Button-1>', self.update_onedrive_line_numbers)
+        self.onedrive_url_entry.bind('<KeyRelease>', self.highlight_onedrive_current_line)
+        
+        # Initialize OneDrive line numbers
+        self.update_onedrive_line_numbers()
+
         # OneDrive Cookie file
         self.onedrive_use_cookies = tk.BooleanVar()
         tk.Checkbutton(right_column, text="Dùng cookie file cho OneDrive", variable=self.onedrive_use_cookies, command=self.toggle_onedrive_cookie_entry, font=("Segoe UI", 10), bg="#f4f6fb").pack(anchor="w", padx=20, pady=(10, 0))
@@ -325,14 +425,46 @@ class VideoDownloaderApp(tk.Tk):
             return
 
         self.download_button.config(state="disabled")
-        self.progress_bar.start()
-        self.status_label.config(text=f"⏳ Đang tải {len(urls)} video...", fg="#ff9800")
+        # Start progress if widget exists
+        if hasattr(self, 'progress_bar') and self.progress_bar:
+            try:
+                self.progress_bar.start()
+            except Exception:
+                pass
+        
+        # Xóa thông tin tiến trình cũ (nếu có label)
+        self.clear_progress_display()
+        
+        # Hiển thị danh sách URL với số thứ tự
+        url_list = []
+        for i, url in enumerate(urls, 1):
+            formatted_url = self.format_url_for_display(url, i)
+            url_list.append(formatted_url)
+        
+        status_text = f"⏳ Đang tải {len(urls)} video:\n" + "\n".join(url_list)
+        self.status_label.config(text=status_text, fg="#ff9800")
+        
         self.active_downloads = len(urls)
-        for url in urls:
-            threading.Thread(target=self.run_download, args=(url, output_folder, cookie_file, optimize_mode)).start()
+        for i, url in enumerate(urls, 1):
+            threading.Thread(target=self.run_download, args=(url, output_folder, cookie_file, optimize_mode, i)).start()
 
-    def run_download(self, url, output_folder, cookie_file, optimize_mode):
+    def run_download(self, url, output_folder, cookie_file, optimize_mode, line_number):
         def update_status(status_text, color="#3b5998"):
+            # Thêm số thứ tự vào thông báo trạng thái
+            if "Đang tải" in status_text:
+                status_text = f"[{line_number}] {status_text}"
+                
+                # Parse thông tin fragment từ status_text
+                self.parse_and_display_progress(status_text, line_number)
+            elif "Hoàn tất" in status_text:
+                status_text = f"[{line_number}] {status_text}"
+                # Xóa thông tin fragment khi hoàn tất
+                self.clear_progress_display()
+            elif "Lỗi" in status_text:
+                status_text = f"[{line_number}] {status_text}"
+                # Xóa thông tin fragment khi có lỗi
+                self.clear_progress_display()
+            
             self.status_label.config(text=status_text, fg=color)
 
         try:
@@ -342,38 +474,83 @@ class VideoDownloaderApp(tk.Tk):
         finally:
             self.active_downloads -= 1
             if self.active_downloads <= 0:
-                self.progress_bar.stop()
+                # Stop progress if widget exists
+                if hasattr(self, 'progress_bar') and self.progress_bar:
+                    try:
+                        self.progress_bar.stop()
+                    except Exception:
+                        pass
                 self.download_button.config(state="normal")
                 self.status_label.config(text="✅ Đã tải xong tất cả video!", fg="#28a745")
+                self.clear_progress_display()
             else:
                 self.status_label.config(text=f"⏳ Đang tải {self.active_downloads} video còn lại...", fg="#ff9800")
 
     def start_onedrive_download(self):
         """Bắt đầu tải file từ OneDrive/SharePoint"""
-        onedrive_url = self.onedrive_url_entry.get().strip()
+        onedrive_url_text = self.onedrive_url_entry.get("1.0", tk.END)
+        onedrive_urls = [u.strip() for u in onedrive_url_text.splitlines() if u.strip()]
         output_folder = self.output_entry.get().strip()
         cookie_file = self.onedrive_cookie_entry.get().strip() if self.onedrive_use_cookies.get() else None
 
-        if not onedrive_url or not output_folder:
+        if not onedrive_urls or not output_folder:
             messagebox.showerror("Thiếu thông tin", "Vui lòng nhập OneDrive/SharePoint URL và chọn thư mục lưu.")
             return
 
         # Kiểm tra URL OneDrive/SharePoint
-        if not self.is_onedrive_url(onedrive_url):
-            messagebox.showerror("URL không hợp lệ", "Vui lòng nhập URL OneDrive/SharePoint hợp lệ (ví dụ: https://1drv.ms/v/s!... hoặc https://yourdomain.sharepoint.com/...)")
+        invalid_urls = []
+        for url in onedrive_urls:
+            if not self.is_onedrive_url(url):
+                invalid_urls.append(url)
+        
+        if invalid_urls:
+            error_msg = "Các URL sau không phải OneDrive/SharePoint hợp lệ:\n"
+            for i, url in enumerate(invalid_urls, 1):
+                formatted_url = self.format_url_for_display(url, i)
+                error_msg += f"{formatted_url}\n"
+            messagebox.showerror("URL không hợp lệ", error_msg)
             return
 
         self.onedrive_download_button.config(state="disabled")
-        self.onedrive_progress_bar.start()
-        self.onedrive_status_label.config(text="⏳ Đang tải file từ OneDrive/SharePoint...", fg="#e67e22")
-        self.active_onedrive_downloads += 1
+        # Start progress if widget exists
+        if hasattr(self, 'onedrive_progress_bar') and self.onedrive_progress_bar:
+            try:
+                self.onedrive_progress_bar.start()
+            except Exception:
+                pass
         
-        # Chạy tải file trong thread riêng
-        threading.Thread(target=self.run_onedrive_download, args=(onedrive_url, output_folder, cookie_file)).start()
+        # Xóa thông tin tiến trình cũ
+        self.clear_progress_display()
+        
+        # Hiển thị danh sách URL với số thứ tự
+        url_list = []
+        for i, url in enumerate(onedrive_urls, 1):
+            formatted_url = self.format_url_for_display(url, i)
+            url_list.append(formatted_url)
+        
+        status_text = f"⏳ Đang tải {len(onedrive_urls)} file từ OneDrive/SharePoint:\n" + "\n".join(url_list)
+        self.onedrive_status_label.config(text=status_text, fg="#e67e22")
+        self.active_onedrive_downloads = len(onedrive_urls)
+        
+        # Chạy tải file trong thread riêng cho mỗi URL
+        for i, url in enumerate(onedrive_urls, 1):
+            threading.Thread(target=self.run_onedrive_download, args=(url, output_folder, cookie_file, i)).start()
 
-    def run_onedrive_download(self, onedrive_url, output_folder, cookie_file):
+    def run_onedrive_download(self, onedrive_url, output_folder, cookie_file, line_number):
         """Chạy tải file OneDrive/SharePoint trong thread riêng"""
         def update_status(status_text, color="#e67e22"):
+            # Thêm số thứ tự vào thông báo trạng thái
+            if "Đang tải" in status_text:
+                status_text = f"[{line_number}] {status_text}"
+            elif "Hoàn tất" in status_text:
+                status_text = f"[{line_number}] {status_text}"
+            elif "Lỗi" in status_text:
+                status_text = f"[{line_number}] {status_text}"
+            elif "Đang kiểm tra" in status_text:
+                status_text = f"[{line_number}] {status_text}"
+            elif "Phát hiện" in status_text:
+                status_text = f"[{line_number}] {status_text}"
+            
             self.onedrive_status_label.config(text=status_text, fg=color)
 
         try:
@@ -384,7 +561,12 @@ class VideoDownloaderApp(tk.Tk):
         finally:
             self.active_onedrive_downloads -= 1
             if self.active_onedrive_downloads <= 0:
-                self.onedrive_progress_bar.stop()
+                # Stop progress if widget exists
+                if hasattr(self, 'onedrive_progress_bar') and self.onedrive_progress_bar:
+                    try:
+                        self.onedrive_progress_bar.stop()
+                    except Exception:
+                        pass
                 self.onedrive_download_button.config(state="normal")
                 self.onedrive_status_label.config(text="✅ Đã tải xong tất cả file!", fg="#27ae60")
             else:
@@ -1027,6 +1209,7 @@ class VideoDownloaderApp(tk.Tk):
         Download file from URL with proper validation and progress tracking
         """
         try:
+            import requests
             # Setup SharePoint-specific headers with proper authentication
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -1340,6 +1523,7 @@ class VideoDownloaderApp(tk.Tk):
     
     def download_sharepoint_file_multi_approach(self, sharing_url, output_folder, cookie_file, status_callback):
         """Try multiple approaches to download SharePoint files"""
+        import requests
         filename = self.extract_filename_from_url(sharing_url)
         session = requests.Session()
         
@@ -1809,3 +1993,133 @@ class VideoDownloaderApp(tk.Tk):
         except Exception as e:
             status_callback(f"❌ yt-dlp fallback failed: {str(e)}", "red")
             return False
+
+    def update_line_numbers(self, event=None):
+        """Update line numbers in the URL input area"""
+        text = self.url_entry.get("1.0", tk.END)
+        lines = text.splitlines()
+        self.line_numbers.delete("1.0", tk.END)
+        for i, line in enumerate(lines, 1):
+            self.line_numbers.insert(tk.END, f"{i}\n")
+
+    def highlight_current_line(self, event):
+        """Highlight the current line in the URL input"""
+        try:
+            current_line = self.url_entry.index(tk.INSERT).split('.')[0]
+            self.line_numbers.tag_remove("current_line", "1.0", tk.END)
+            self.line_numbers.tag_add("current_line", f"{current_line}.0", f"{current_line}.end")
+            self.line_numbers.tag_config("current_line", background="#e3f2fd", foreground="#1976d2")
+        except Exception:
+            pass
+
+    def truncate_url(self, url, max_length=80):
+        """Truncate long URLs to fit on one line"""
+        if len(url) <= max_length:
+            return url
+        
+        # Keep the beginning and end, truncate middle
+        keep_start = max_length // 3
+        keep_end = max_length // 3
+        middle = "..."
+        
+        start = url[:keep_start]
+        end = url[-keep_end:] if keep_end > 0 else ""
+        
+        return f"{start}{middle}{end}"
+    
+    def format_url_for_display(self, url, line_number):
+        """Format URL for display in status messages"""
+        if len(url) > 60:
+            return f"{line_number}. {self.truncate_url(url, 60)}"
+        return f"{line_number}. {url}"
+    
+    def get_line_number(self, url):
+        """Get the line number of a URL in the input text"""
+        text = self.url_entry.get("1.0", tk.END)
+        lines = text.splitlines()
+        for i, line in enumerate(lines, 1):
+            if line.strip() == url.strip():
+                return i
+        return 1  # Default to line 1 if not found
+
+    def update_onedrive_line_numbers(self, event=None):
+        """Update line numbers in the OneDrive URL input area"""
+        text = self.onedrive_url_entry.get("1.0", tk.END)
+        lines = text.splitlines()
+        self.onedrive_line_numbers.delete("1.0", tk.END)
+        for i, line in enumerate(lines, 1):
+            self.onedrive_line_numbers.insert(tk.END, f"{i}\n")
+
+    def highlight_onedrive_current_line(self, event):
+        """Highlight the current line in the OneDrive URL input"""
+        try:
+            current_line = self.onedrive_url_entry.index(tk.INSERT).split('.')[0]
+            self.onedrive_line_numbers.tag_remove("current_line", "1.0", tk.END)
+            self.onedrive_line_numbers.tag_add("current_line", f"{current_line}.0", f"{current_line}.end")
+            self.onedrive_line_numbers.tag_config("current_line", background="#e3f2fd", foreground="#1976d2")
+        except Exception:
+            pass
+
+    def parse_and_display_progress(self, status_text, line_number):
+        """Parse thông tin fragment và hiển thị tiến trình chi tiết (nếu label tồn tại)"""
+        try:
+            # Parse fragment information
+            if "Fragment:" in status_text and hasattr(self, 'fragment_progress_label') and self.fragment_progress_label:
+                import re
+                fragment_match = re.search(r'Fragment:\s*(\d+)/(\d+)', status_text)
+                if fragment_match:
+                    current_frag = int(fragment_match.group(1))
+                    total_frags = int(fragment_match.group(2))
+                    remaining_frags = total_frags - current_frag
+                    
+                    fragment_text = f"📊 Fragment: {current_frag}/{total_frags} (còn {remaining_frags})"
+                    try:
+                        self.fragment_progress_label.config(text=fragment_text, fg="#3b5998")
+                    except Exception:
+                        pass
+                    
+                    # Tính phần trăm fragment
+                    frag_percent = (current_frag / total_frags) * 100 if total_frags else 0
+                    fragment_text += f" - {frag_percent:.1f}%"
+                    try:
+                        self.fragment_progress_label.config(text=fragment_text, fg="#3b5998")
+                    except Exception:
+                        pass
+            
+            # Parse speed và ETA
+            if "Tốc độ:" in status_text and hasattr(self, 'speed_eta_label') and self.speed_eta_label:
+                import re
+                speed_match = re.search(r'Tốc độ:\s*([^|]+)', status_text)
+                eta_match = re.search(r'Còn lại:\s*([^|]+)', status_text)
+                
+                speed_text = ""
+                if speed_match:
+                    speed = speed_match.group(1).strip()
+                    speed_text = f"⚡ Tốc độ: {speed}"
+                
+                if eta_match:
+                    eta = eta_match.group(1).strip()
+                    speed_text += f" | ⏱️ Còn lại: {eta}"
+                
+                if speed_text:
+                    try:
+                        self.speed_eta_label.config(text=speed_text, fg="#27ae60")
+                    except Exception:
+                        pass
+                    
+        except Exception:
+            # an toàn: bỏ qua lỗi parse hiển thị
+            pass
+    
+    def clear_progress_display(self):
+        """Xóa thông tin tiến trình chi tiết nếu các label tồn tại"""
+        if hasattr(self, 'fragment_progress_label') and self.fragment_progress_label:
+            try:
+                self.fragment_progress_label.config(text="")
+            except Exception:
+                pass
+        if hasattr(self, 'speed_eta_label') and self.speed_eta_label:
+            try:
+                self.speed_eta_label.config(text="")
+            except Exception:
+                pass

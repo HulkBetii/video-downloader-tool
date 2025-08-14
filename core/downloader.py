@@ -83,18 +83,43 @@ def download_video(url, output_folder, cookie_file=None, status_callback=None, o
             percent = d.get('_percent_str', '').strip()
             speed = d.get('_speed_str', '').strip()
             eta = d.get('_eta_str', '').strip()
+            
+            # Thêm thông tin fragment
+            fragment_info = ""
+            if 'fragment_index' in d and 'fragment_count' in d:
+                current_frag = d.get('fragment_index', 0)
+                total_frags = d.get('fragment_count', 0)
+                if total_frags > 0:
+                    fragment_info = f" | Fragment: {current_frag}/{total_frags}"
+            
             if status_callback:
                 status_text = f"📥 Đang tải: {percent} | Tốc độ: {speed}"
                 if eta:
                     status_text += f" | Còn lại: {eta}"
+                if fragment_info:
+                    status_text += fragment_info
                 status_callback(status_text, "blue")
         elif d['status'] == 'finished':
             if status_callback:
                 status_callback("✅ Hoàn tất tải video!", "green")
 
+    # Đảm bảo thư mục lưu tồn tại trước khi tải
+    try:
+        os.makedirs(output_folder, exist_ok=True)
+    except Exception as e:
+        if status_callback:
+            status_callback(f"❌ Không thể tạo thư mục lưu: {e}", "red")
+        return
+
     ydl_opts = {
         'outtmpl': os.path.join(output_folder, '%(title)s.%(ext)s'),
+        'paths': {'home': output_folder, 'temp': output_folder},
         'progress_hooks': [hook],
+        # Tối ưu và an toàn cho Windows: tránh lỗi tên file/đường dẫn
+        'windowsfilenames': True,
+        'restrictfilenames': True if os.name == 'nt' else config.get('restrictfilenames', False),
+        'trim_file_name': 120,  # giới hạn độ dài tên file
+        'continuedl': True,     # tiếp tục tải nếu bị gián đoạn
         **config,
     }
 
