@@ -55,7 +55,7 @@
 - **Retry mechanism**: Tự động thử lại với cài đặt giảm dần khi gặp lỗi
 
 ### 📝 Configuration Changes
-- `concurrent_fragment_downloads`: Giảm từ 20 xuống 8 (speed_quality mode)
+
 - `concurrent_fragment_downloads`: Giảm từ 16 xuống 6 (speed mode)  
 - `concurrent_fragment_downloads`: Giảm từ 8 xuống 4 (balanced mode)
 - `concurrent_fragment_downloads`: Giảm từ 4 xuống 3 (quality mode)

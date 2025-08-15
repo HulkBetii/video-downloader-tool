@@ -41,19 +41,31 @@ sudo apt install ffmpeg
 ### Chạy GUI (Khuyến nghị)
 ```bash
 cd video_downloader_tool
-python run.py
-```
-
-### Chạy GUI (Cách khác)
-```bash
-cd video_downloader_tool
 python main.py
 ```
 
 ### Chạy command line
 ```bash
 cd video_downloader_tool
-python tast.py
+python main.py --url "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --out ./downloads
+```
+
+### Ví dụ CLI
+```bash
+# Tải một video
+python main.py --url "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --out ./downloads
+
+# Tải nhiều video
+python main.py --url "video1.mp4" "video2.mp4" --out ./downloads --mode speed
+
+# Tải với cookie
+python main.py --url "https://onedrive.live.com/..." --out ./downloads --cookie cookies.txt
+
+# Chế độ verbose
+python main.py --url "https://vimeo.com/..." --out ./downloads --verbose
+
+# Kiểm tra ffmpeg
+python main.py --check-ffmpeg
 ```
 
 ## Hỗ trợ Cookies
@@ -117,18 +129,7 @@ python tast.py
 - Tối ưu cho chất lượng video
 - **Yêu cầu ffmpeg** để merge video
 
-### 4. 🚀 Tốc độ + Chất lượng (Speed + Quality) - **MỚI!**
-- **Giữ nguyên chất lượng video cao nhất** (1080p+)
-- **Tối ưu tốc độ tải cực đại**:
-  - Số fragment đồng thời: 20 (tối đa)
-  - Buffer size: 4KB
-  - Chunk size: 30MB
-  - Retry: 5 lần
-  - Socket timeout: 20s
-- **Sử dụng ffmpeg** để merge video chất lượng cao
-- **Hỗ trợ external downloaders** (aria2c, wget, curl)
-- **Tối ưu hóa network** với custom headers và connection pooling
-- **Yêu cầu ffmpeg** để hoạt động tối ưu
+
 
 ## Tối ưu hóa đã thực hiện
 
@@ -161,12 +162,25 @@ video_downloader_tool/
 │   ├── config.py        # Cấu hình download
 │   └── downloader.py    # Engine download video
 ├── ui/                  # Giao diện người dùng
-│   └── download_ui.py   # Giao diện Tkinter chính
+│   ├── components/      # UI components tái sử dụng
+│   │   ├── url_input.py
+│   │   ├── cookie_input.py
+│   │   ├── optimization_selector.py
+│   │   └── progress_display.py
+│   ├── views/           # Main view classes
+│   │   ├── main_window.py
+│   │   └── download_tab.py
+│   ├── controllers/     # UI event handlers
+│   │   ├── download_controller.py
+│   │   ├── onedrive_controller.py
+│   │   └── cookie_controller.py
+│   └── __init__.py
 ├── utils/               # Tiện ích hỗ trợ
 │   ├── cookies.py       # Xử lý cookie files
 │   ├── ffmpeg_checker.py # Kiểm tra ffmpeg
 │   └── system_optimizer.py # Tối ưu hóa hệ thống
-├── main.py              # Entry point chính
+├── main.py              # Entry point chính (GUI + CLI)
+├── cli.py               # Command-line interface
 ├── requirements.txt     # Dependencies
 ├── README.md           # Hướng dẫn sử dụng
 ├── COOKIE_SETUP.md     # Hướng dẫn thiết lập cookie
@@ -178,9 +192,9 @@ video_downloader_tool/
 ## Troubleshooting
 
 ### Lỗi thường gặp
-1. **Import errors**: Sử dụng `python run.py` thay vì `python main.py`
+1. **Import errors**: Sử dụng `python main.py` thay vì `python run.py`
 2. **"download_video" is not defined**: Kiểm tra import statement
-3. **Import "ui.downloader_ui" could not be resolved**: File tên là `download_ui.py`
+3. **Import "ui.downloader_ui" could not be resolved**: File đã được refactor thành modular structure
 4. **Tốc độ tải chậm**: Thử chế độ "Tốc độ cao"
 5. **"ffmpeg is not installed"**: 
    - Tool sẽ tự động sử dụng format đơn giản
@@ -234,5 +248,5 @@ Xem chi tiết trong [COOKIE_SETUP.md](COOKIE_SETUP.md)
 ### Yêu cầu
 - Python 3.7+
 - psutil library: `pip install psutil`
-- ffmpeg (cho chế độ Tốc độ + Chất lượng)
+- ffmpeg (cho chế độ Chất lượng cao)
 - aria2c (tùy chọn, để tăng tốc độ tải)

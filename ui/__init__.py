@@ -1,4 +1,8 @@
 # ui/__init__.py
 """
-User interface components for video downloader
+UI package for Video Downloader Tool
 """
+
+from .views.main_window import VideoDownloaderApp
+
+__all__ = ['VideoDownloaderApp']

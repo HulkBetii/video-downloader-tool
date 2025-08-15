@@ -40,54 +40,81 @@ SPEED_OPTIMIZED_CONFIG = {
     'http_chunk_size': 20971520,  # Tăng chunk size lên 20MB
 }
 
-# Cấu hình mới: Tối ưu tốc độ + Chất lượng cao
-SPEED_QUALITY_OPTIMIZED_CONFIG = {
+def auto_adjust_config_for_stability(config, url=None):
+    """
+    Automatically adjust configuration settings for better stability
+    """
+    adjusted_config = config.copy()
+    
+    # If URL contains known problematic sources, make settings more conservative
+    if url:
+        url_lower = url.lower()
+        problematic_sources = [
+            'youtube.com', 'youtu.be', 'vimeo.com', 'dailymotion.com',
+            'twitch.tv', 'facebook.com', 'instagram.com', 'tiktok.com'
+        ]
+        
+        if any(source in url_lower for source in problematic_sources):
+            # Make settings more conservative for problematic sources
+            adjusted_config['concurrent_fragment_downloads'] = min(
+                adjusted_config.get('concurrent_fragment_downloads', 4), 2
+            )
+            adjusted_config['fragment_retries'] = max(
+                adjusted_config.get('fragment_retries', 5), 10
+            )
+            adjusted_config['retry_sleep'] = max(
+                adjusted_config.get('retry_sleep', 2), 3
+            )
+            adjusted_config['socket_timeout'] = max(
+                adjusted_config.get('socket_timeout', 30), 45
+            )
+    
+    # General stability improvements
+    if adjusted_config.get('concurrent_fragment_downloads', 1) > 4:
+        adjusted_config['concurrent_fragment_downloads'] = 4
+    
+    if adjusted_config.get('fragment_retries', 1) < 5:
+        adjusted_config['fragment_retries'] = 5
+    
+    if adjusted_config.get('retry_sleep', 0) < 2:
+        adjusted_config['retry_sleep'] = 2
+    
+    return adjusted_config
+
+
+
+
+# Cấu hình an toàn để fallback khi gặp lỗi fragment
+SAFE_FALLBACK_CONFIG = {
     **DOWNLOAD_CONFIG,
-    # Giữ nguyên format chất lượng cao
-    'format': 'bestvideo[height>=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+    # Format đơn giản để tránh lỗi merge
+    'format': 'best[ext=mp4]/best',
     'merge_output_format': 'mp4',
-    'prefer_ffmpeg': True,  # Bật ffmpeg để merge video chất lượng cao
+    'prefer_ffmpeg': False,  # Tắt ffmpeg để tránh lỗi
     
-    # Tối ưu hóa tốc độ tải - giảm để tránh lỗi file
-    'concurrent_fragment_downloads': 8,  # Giảm từ 20 xuống 8 để ổn định
-    'buffersize': 4096,  # Tăng buffer size lên 4KB
-    'http_chunk_size': 31457280,  # Tăng chunk size lên 30MB
-    'retries': 5,  # Tăng số lần retry
-    'fragment_retries': 5,  # Tăng retry cho fragment
+    # Cài đặt an toàn tối đa
+    'concurrent_fragment_downloads': 1,  # Chỉ 1 fragment một lúc
+    'buffersize': 1024,  # Buffer size nhỏ
+    'http_chunk_size': 5242880,  # Chunk size 5MB
+    'retries': 3,
+    'fragment_retries': 5,
+    'skip_unavailable_fragments': True,
     
-    # Tối ưu hóa network nâng cao
-    'socket_timeout': 20,  # Giảm timeout để tăng tốc độ
-    'extractor_retries': 5,  # Tăng retry cho extractor
+    # Network settings an toàn
+    'socket_timeout': 60,
+    'extractor_retries': 3,
     
-    # Cấu hình nâng cao cho tốc độ
-    'max_downloads': 3,  # Cho phép tải nhiều video cùng lúc
-    'max_sleep_interval': 0,  # Không delay giữa các request
-    'sleep_interval': 0,  # Không sleep giữa các request
-    'max_sleep_interval_requests': 0,  # Không sleep giữa các request
+    # Không có concurrent downloads
+    'max_downloads': 1,
+    'max_sleep_interval': 3,
+    'sleep_interval': 2,
+    'max_sleep_interval_requests': 3,
     
-    # Tối ưu hóa memory
-    'memory_limit': 0,  # Không giới hạn memory
-    'max_filesize': 0,  # Không giới hạn kích thước file
-    
-    # Tối ưu hóa network nâng cao
-    'http_headers': {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-    },
-    
-    # Tối ưu hóa connection pooling
-    'source_address': '0.0.0.0',  # Bind to all interfaces
-    'force_ipv4': True,  # Ưu tiên IPv4 để tăng tốc độ
-    'nocheckcertificate': True,  # Bỏ qua SSL check để tăng tốc độ
-    
-    # Tối ưu hóa fragment download - bỏ external downloader để tránh lỗi
-    'hls_prefer_native': False,  # Sử dụng ffmpeg cho HLS
-    # Bỏ external_downloader để tránh lỗi file management
+    # Fragment handling an toàn
+    'hls_prefer_native': True,
+    'external_downloader': None,
+    'retry_sleep': 5,
+    'file_access_retries': 3,
 }
 
 QUALITY_OPTIMIZED_CONFIG = {
