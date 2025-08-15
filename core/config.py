@@ -10,8 +10,8 @@ DOWNLOAD_CONFIG = {
     'merge_output_format': 'mp4',
     'prefer_ffmpeg': False,  # Tắt ffmpeg để tránh lỗi
     
-    # Tối ưu hóa tốc độ tải
-    'concurrent_fragment_downloads': 8,  # Số fragment tải đồng thời
+    # Tối ưu hóa tốc độ tải - giảm để tránh lỗi file
+    'concurrent_fragment_downloads': 4,  # Giảm từ 8 xuống 4 để ổn định
     'buffersize': 1024,  # Buffer size (bytes)
     'http_chunk_size': 10485760,  # Chunk size 10MB
     'retries': 3,  # Số lần retry
@@ -35,7 +35,7 @@ POST_PROCESSORS = []  # Bỏ post-processors để tránh lỗi ffmpeg
 # Cấu hình cho các trường hợp đặc biệt
 SPEED_OPTIMIZED_CONFIG = {
     **DOWNLOAD_CONFIG,
-    'concurrent_fragment_downloads': 16,  # Tăng số fragment đồng thời
+    'concurrent_fragment_downloads': 6,  # Giảm từ 16 xuống 6 để ổn định
     'buffersize': 2048,  # Tăng buffer size
     'http_chunk_size': 20971520,  # Tăng chunk size lên 20MB
 }
@@ -48,8 +48,8 @@ SPEED_QUALITY_OPTIMIZED_CONFIG = {
     'merge_output_format': 'mp4',
     'prefer_ffmpeg': True,  # Bật ffmpeg để merge video chất lượng cao
     
-    # Tối ưu hóa tốc độ tải cực đại
-    'concurrent_fragment_downloads': 20,  # Tăng số fragment đồng thời lên tối đa
+    # Tối ưu hóa tốc độ tải - giảm để tránh lỗi file
+    'concurrent_fragment_downloads': 8,  # Giảm từ 20 xuống 8 để ổn định
     'buffersize': 4096,  # Tăng buffer size lên 4KB
     'http_chunk_size': 31457280,  # Tăng chunk size lên 30MB
     'retries': 5,  # Tăng số lần retry
@@ -85,17 +85,16 @@ SPEED_QUALITY_OPTIMIZED_CONFIG = {
     'force_ipv4': True,  # Ưu tiên IPv4 để tăng tốc độ
     'nocheckcertificate': True,  # Bỏ qua SSL check để tăng tốc độ
     
-    # Tối ưu hóa fragment download
+    # Tối ưu hóa fragment download - bỏ external downloader để tránh lỗi
     'hls_prefer_native': False,  # Sử dụng ffmpeg cho HLS
-    'external_downloader': 'aria2c',  # Sử dụng aria2c nếu có sẵn
-    'external_downloader_args': ['--max-connection-per-server=16', '--min-split-size=1M', '--max-concurrent-downloads=16'],
+    # Bỏ external_downloader để tránh lỗi file management
 }
 
 QUALITY_OPTIMIZED_CONFIG = {
     **DOWNLOAD_CONFIG,
     # Ưu tiên video >=1080p, merge audio tốt nhất, fallback nếu không có
     'format': 'bestvideo[height>=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-    'concurrent_fragment_downloads': 4,  # Giảm số fragment để ưu tiên chất lượng
+    'concurrent_fragment_downloads': 3,  # Giảm từ 4 xuống 3 để ổn định
 }
 
 # Cấu hình cho trường hợp có ffmpeg

@@ -153,28 +153,26 @@ python tast.py
 - **System optimization tab**: Hiển thị thông tin hệ thống và tips tối ưu hóa
 - **Performance monitoring**: Theo dõi hiệu suất hệ thống real-time
 
-## Cấu trúc thư mục
+## 📁 **Cấu trúc Project**
 
 ```
 video_downloader_tool/
-├── core/
-│   ├── __init__.py
-│   ├── downloader.py    # Core download logic
-│   └── config.py        # Configuration settings
-├── ui/
-│   ├── __init__.py
-│   └── download_ui.py   # GUI interface
-├── utils/
-│   ├── __init__.py
-│   ├── cookies.py       # Cookie utilities
-│   ├── ffmpeg_checker.py # FFmpeg checker
-│   └── system_optimizer.py # System optimization utilities
-├── examples/
-│   └── cookies_example.json # Example cookie file
-├── __init__.py
-├── main.py              # Main entry point
-├── run.py               # Simple runner script (recommended)
-└── tast.py             # Test script
+├── core/                 # Logic chính của ứng dụng
+│   ├── config.py        # Cấu hình download
+│   └── downloader.py    # Engine download video
+├── ui/                  # Giao diện người dùng
+│   └── download_ui.py   # Giao diện Tkinter chính
+├── utils/               # Tiện ích hỗ trợ
+│   ├── cookies.py       # Xử lý cookie files
+│   ├── ffmpeg_checker.py # Kiểm tra ffmpeg
+│   └── system_optimizer.py # Tối ưu hóa hệ thống
+├── main.py              # Entry point chính
+├── requirements.txt     # Dependencies
+├── README.md           # Hướng dẫn sử dụng
+├── COOKIE_SETUP.md     # Hướng dẫn thiết lập cookie
+├── CHANGELOG.md        # Lịch sử thay đổi
+├── .gitignore          # Git ignore rules
+└── moithuvemmo-my.sharepoint.com_cookies.txt # Cookie file mặc định
 ```
 
 ## Troubleshooting
@@ -210,21 +208,28 @@ video_downloader_tool/
 - **Validation**: Kiểm tra tính hợp lệ của file trước khi sử dụng
 - **Error handling**: Thông báo rõ ràng nếu file không hợp lệ
 
-## 🚀 System Optimizer (Mới!)
+## 🍪 **Cookie Configuration**
 
-### Tính năng chính
-- **Tự động phát hiện system specs**: CPU cores, RAM, OS
-- **Tối ưu hóa cài đặt**: Tự động điều chỉnh theo hardware
-- **Performance monitoring**: Theo dõi CPU, RAM, Disk usage real-time
-- **Network optimization tips**: Mẹo tối ưu hóa mạng theo từng OS
-- **External downloader detection**: Kiểm tra aria2c, wget, curl
+Tool đã được cấu hình sẵn để sử dụng cookie file `moithuvemmo-my.sharepoint.com_cookies.txt` cho cả video download và OneDrive download.
 
-### Cách sử dụng
-1. Chuyển sang tab "⚡ Tối ưu hóa"
-2. Xem thông tin hệ thống và hiệu suất
-3. Làm mới báo cáo hiệu suất
-4. Đọc các mẹo tối ưu hóa mạng
-5. Sử dụng chế độ "🚀 Tốc độ + Chất lượng" để tải video
+**Cookie file location**: `C:\Users\HH\Downloads\video_downloader_tool_donev1\video_downloader_tool\moithuvemmo-my.sharepoint.com_cookies.txt`
+
+### **Tính năng Cookie:**
+- ✅ **Tự động phát hiện**: Tool tự động tìm và cấu hình cookie file
+- ✅ **Mặc định bật**: Cookie được bật sẵn cho cả hai loại download
+- ✅ **Nút khôi phục**: Có thể khôi phục về cài đặt mặc định
+- ✅ **Hỗ trợ nhiều format**: .txt và .json files
+- ✅ **Đường dẫn tuyệt đối**: Sử dụng đường dẫn cố định để đảm bảo tìm thấy file
+
+### **Lợi ích:**
+- Tải video private yêu cầu đăng nhập
+- Truy cập file OneDrive/SharePoint private
+- Không cần nhập username/password mỗi lần
+- Bảo mật thông tin đăng nhập
+
+Xem chi tiết trong [COOKIE_SETUP.md](COOKIE_SETUP.md)
+
+## 🚀 **Cách sử dụng**
 
 ### Yêu cầu
 - Python 3.7+

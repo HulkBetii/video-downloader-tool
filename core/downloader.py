@@ -37,7 +37,7 @@ def check_ffmpeg_available():
         return False
 
 
-def download_video(url, output_folder, cookie_file=None, status_callback=None, optimize_mode='balanced'):
+def download_video(url, output_folder, cookie_file=None, status_callback=None, optimize_mode='balanced', max_retries=2):
     """
     Tải video từ URL, sử dụng yt-dlp
     :param url: Đường dẫn video
@@ -45,6 +45,7 @@ def download_video(url, output_folder, cookie_file=None, status_callback=None, o
     :param cookie_file: File cookies.txt hoặc .json nếu cần
     :param status_callback: Hàm callback để cập nhật trạng thái cho UI
     :param optimize_mode: Chế độ tối ưu hóa ('balanced', 'speed', 'quality', 'speed_quality')
+    :param max_retries: Số lần thử lại tối đa khi gặp lỗi file
     """
     
     # Kiểm tra ffmpeg
@@ -120,6 +121,12 @@ def download_video(url, output_folder, cookie_file=None, status_callback=None, o
         'restrictfilenames': True if os.name == 'nt' else config.get('restrictfilenames', False),
         'trim_file_name': 120,  # giới hạn độ dài tên file
         'continuedl': True,     # tiếp tục tải nếu bị gián đoạn
+        
+        # Thêm cấu hình để tránh lỗi file
+        'nopart': False,        # Giữ file tạm thời để có thể tiếp tục
+        'updatetime': False,    # Không cập nhật thời gian file
+        'writethumbnail': False, # Không tải thumbnail để tránh lỗi
+        
         **config,
     }
 
@@ -135,12 +142,49 @@ def download_video(url, output_folder, cookie_file=None, status_callback=None, o
             if status_callback:
                 status_callback("⚠️ Cookie file không hợp lệ hoặc không tồn tại", "orange")
 
-    try:
-        with YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-    except DownloadError as e:
-        if status_callback:
-            status_callback(f"❌ Không thể tải: {str(e).splitlines()[0]}", "red")
-    except Exception as e:
-        if status_callback:
-            status_callback(f"⚠️ Lỗi không xác định: {str(e)}", "red")
+    # Hàm thực hiện download với retry
+    def attempt_download(ydl_opts, attempt_number=1):
+        try:
+            with YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            return True  # Thành công
+        except DownloadError as e:
+            error_msg = str(e)
+            if "No such file or directory" in error_msg and attempt_number < max_retries:
+                if status_callback:
+                    status_callback(f"⚠️ Lần thử {attempt_number}: Lỗi file tạm thời, thử lại với cài đặt an toàn hơn...", "orange")
+                
+                # Giảm concurrent downloads và thử lại
+                retry_opts = ydl_opts.copy()
+                retry_opts['concurrent_fragment_downloads'] = max(1, retry_opts.get('concurrent_fragment_downloads', 4) // 2)
+                retry_opts['fragment_retries'] = 1  # Giảm retry cho fragment
+                
+                return attempt_download(retry_opts, attempt_number + 1)
+            else:
+                if status_callback:
+                    if "No such file or directory" in error_msg:
+                        status_callback("❌ Lỗi: Không thể tìm thấy file tạm thời. Có thể do quá nhiều fragment tải đồng thời.", "red")
+                        status_callback("💡 Thử giảm chế độ tối ưu hóa hoặc kiểm tra kết nối mạng.", "orange")
+                    else:
+                        status_callback(f"❌ Không thể tải: {error_msg.splitlines()[0]}", "red")
+                return False
+        except FileNotFoundError as e:
+            if status_callback:
+                status_callback(f"❌ Lỗi file: {str(e)}", "red")
+                status_callback("💡 Kiểm tra quyền truy cập thư mục và dung lượng ổ đĩa.", "orange")
+            return False
+        except PermissionError as e:
+            if status_callback:
+                status_callback(f"❌ Lỗi quyền truy cập: {str(e)}", "red")
+                status_callback("💡 Chạy ứng dụng với quyền Administrator hoặc chọn thư mục khác.", "orange")
+            return False
+        except Exception as e:
+            if status_callback:
+                status_callback(f"⚠️ Lỗi không xác định: {str(e)}", "red")
+                status_callback("💡 Thử khởi động lại ứng dụng hoặc kiểm tra cài đặt.", "orange")
+            return False
+
+    # Thực hiện download với retry
+    success = attempt_download(ydl_opts)
+    if success and status_callback:
+        status_callback("✅ Hoàn tất tải video!", "green")

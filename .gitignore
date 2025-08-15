@@ -126,5 +126,7 @@ dist/
 *.log
 cookies.txt
 *.cookies
+*_cookies.txt
+*_cookies.json
 temp/
 downloads/

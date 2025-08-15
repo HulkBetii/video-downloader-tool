@@ -106,6 +106,23 @@ class VideoDownloaderApp(tk.Tk):
         footer.pack(fill="x", side="bottom")
         about = tk.Label(footer, text="Make by @ HulkBeoti | 2025", font=("Segoe UI", 9), bg="#e3e6f0", fg="#888")
         about.pack(pady=8)
+        
+        # Khởi tạo cookie sau khi tất cả widgets được tạo
+        self.initialize_cookies()
+
+    def initialize_cookies(self):
+        """Khởi tạo trạng thái cookie sau khi tất cả widgets được tạo"""
+        try:
+            # Khởi tạo cookie cho video download
+            if self.use_cookies.get():
+                self.toggle_cookie_entry()
+            
+            # Khởi tạo cookie cho OneDrive download
+            if self.onedrive_use_cookies.get():
+                self.toggle_onedrive_cookie_entry()
+                
+        except Exception as e:
+            print(f"Lỗi khi khởi tạo cookie: {e}")
 
     def create_download_tab(self):
         """Tạo nội dung cho tab Download với layout 2 cột"""
@@ -208,14 +225,29 @@ class VideoDownloaderApp(tk.Tk):
                 pass
 
         # Video Cookie file
-        self.use_cookies = tk.BooleanVar()
+        self.use_cookies = tk.BooleanVar(value=True)  # Mặc định bật
         tk.Checkbutton(left_column, text="Dùng cookie file (.txt/.json)", variable=self.use_cookies, command=self.toggle_cookie_entry, font=("Segoe UI", 10), bg="#f4f6fb").pack(anchor="w", padx=20, pady=(5, 0))
         cookie_frame = tk.Frame(left_column, bg="#f4f6fb")
         cookie_frame.pack(padx=20, fill="x", pady=(5, 10))
-        self.cookie_entry = tk.Entry(cookie_frame, state="disabled", font=("Segoe UI", 10), relief="groove", bd=2)
+        self.cookie_entry = tk.Entry(cookie_frame, font=("Segoe UI", 10), relief="groove", bd=2)  # Mặc định enabled
         self.cookie_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        
+        # Set default cookie file path
+        default_cookie_path = r"C:\Users\HH\Downloads\video_downloader_tool_donev1\video_downloader_tool\moithuvemmo-my.sharepoint.com_cookies.txt"
+        if os.path.exists(default_cookie_path):
+            self.cookie_entry.insert(0, default_cookie_path)
+        else:
+            # Fallback nếu file không tồn tại
+            self.cookie_entry.insert(0, "Cookie file không tìm thấy")
+            self.use_cookies.set(False)
+            self.cookie_entry.config(state="disabled")
+        
         cookie_btn = tk.Button(cookie_frame, text="Chọn...", command=self.select_cookie_file, font=("Segoe UI", 10, "bold"), bg="#3b5998", fg="white", activebackground="#5b7bd5", activeforeground="white", relief="flat", bd=0)
         cookie_btn.pack(side="left", padx=8)
+        
+        # Nút khôi phục mặc định
+        restore_cookie_btn = tk.Button(cookie_frame, text="🔄 Mặc định", command=self.restore_default_cookie_paths, font=("Segoe UI", 9), bg="#6c757d", fg="white", activebackground="#5a6268", activeforeground="white", relief="flat", bd=0)
+        restore_cookie_btn.pack(side="left", padx=4)
 
         # # Video Progress Bar
         # self.progress_frame = tk.Frame(left_column, bg="#f4f6fb")
@@ -294,15 +326,30 @@ class VideoDownloaderApp(tk.Tk):
         self.update_onedrive_line_numbers()
 
         # OneDrive Cookie file
-        self.onedrive_use_cookies = tk.BooleanVar()
+        self.onedrive_use_cookies = tk.BooleanVar(value=True)  # Mặc định bật
         tk.Checkbutton(right_column, text="Dùng cookie file cho OneDrive", variable=self.onedrive_use_cookies, command=self.toggle_onedrive_cookie_entry, font=("Segoe UI", 10), bg="#f4f6fb").pack(anchor="w", padx=20, pady=(10, 0))
         onedrive_cookie_frame = tk.Frame(right_column, bg="#f4f6fb")
         onedrive_cookie_frame.pack(padx=20, fill="x", pady=(5, 10))
-        self.onedrive_cookie_entry = tk.Entry(onedrive_cookie_frame, state="disabled", font=("Segoe UI", 10), relief="groove", bd=2)
+        self.onedrive_cookie_entry = tk.Entry(onedrive_cookie_frame, font=("Segoe UI", 10), relief="groove", bd=2)  # Mặc định enabled
         self.onedrive_cookie_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        
+        # Set default cookie file path for OneDrive
+        default_onedrive_cookie_path = r"C:\Users\HH\Downloads\video_downloader_tool_donev1\video_downloader_tool\moithuvemmo-my.sharepoint.com_cookies.txt"
+        if os.path.exists(default_onedrive_cookie_path):
+            self.onedrive_cookie_entry.insert(0, default_onedrive_cookie_path)
+        else:
+            # Fallback nếu file không tồn tại
+            self.onedrive_cookie_entry.insert(0, "Cookie file không tìm thấy")
+            self.onedrive_use_cookies.set(False)
+            self.onedrive_cookie_entry.config(state="disabled")
+        
         onedrive_cookie_btn = tk.Button(onedrive_cookie_frame, text="Chọn...", command=self.select_onedrive_cookie_file, font=("Segoe UI", 10, "bold"), bg="#e67e22", fg="white", activebackground="#d35400", activeforeground="white", relief="flat", bd=0)
         onedrive_cookie_btn.pack(side="left", padx=8)
         
+        # Nút khôi phục mặc định cho OneDrive
+        restore_onedrive_cookie_btn = tk.Button(onedrive_cookie_frame, text="🔄 Mặc định", command=self.restore_default_onedrive_cookie_paths, font=("Segoe UI", 9), bg="#6c757d", fg="white", activebackground="#5a6268", activeforeground="white", relief="flat", bd=0)
+        restore_onedrive_cookie_btn.pack(side="left", padx=4)
+
         # OneDrive Progress Bar
         self.onedrive_progress_frame = tk.Frame(right_column, bg="#f4f6fb")
         self.onedrive_progress_frame.pack(padx=20, pady=(10, 0), fill="x")
@@ -408,10 +455,20 @@ class VideoDownloaderApp(tk.Tk):
     def toggle_onedrive_cookie_entry(self):
         state = "normal" if self.onedrive_use_cookies.get() else "disabled"
         self.onedrive_cookie_entry.config(state=state)
+        
+        # Nếu tắt cookie, hiển thị thông báo
+        if not self.onedrive_use_cookies.get():
+            self.onedrive_cookie_entry.delete(0, tk.END)
+            self.onedrive_cookie_entry.insert(0, "Cookie đã bị tắt")
 
     def toggle_cookie_entry(self):
         state = "normal" if self.use_cookies.get() else "disabled"
         self.cookie_entry.config(state=state)
+        
+        # Nếu tắt cookie, hiển thị thông báo
+        if not self.use_cookies.get():
+            self.cookie_entry.delete(0, tk.END)
+            self.cookie_entry.insert(0, "Cookie đã bị tắt")
 
     def start_download(self):
         url_text = self.url_entry.get("1.0", tk.END)
@@ -435,13 +492,18 @@ class VideoDownloaderApp(tk.Tk):
         # Xóa thông tin tiến trình cũ (nếu có label)
         self.clear_progress_display()
         
-        # Hiển thị danh sách URL với số thứ tự
+        # Hiển thị danh sách URL với số thứ tự rõ ràng
         url_list = []
         for i, url in enumerate(urls, 1):
             formatted_url = self.format_url_for_display(url, i)
             url_list.append(formatted_url)
         
-        status_text = f"⏳ Đang tải {len(urls)} video:\n" + "\n".join(url_list)
+        # Tạo status text với định dạng rõ ràng hơn
+        status_text = f"⏳ Đang tải {len(urls)} video:\n"
+        status_text += "─" * 50 + "\n"  # Separator line
+        status_text += "\n".join(url_list)
+        status_text += "\n" + "─" * 50  # Bottom separator
+        
         self.status_label.config(text=status_text, fg="#ff9800")
         
         self.active_downloads = len(urls)
@@ -450,26 +512,35 @@ class VideoDownloaderApp(tk.Tk):
 
     def run_download(self, url, output_folder, cookie_file, optimize_mode, line_number):
         def update_status(status_text, color="#3b5998"):
-            # Thêm số thứ tự vào thông báo trạng thái
+            # Thêm số thứ tự vào thông báo trạng thái với định dạng rõ ràng
+            line_prefix = f"[{line_number:2d}]"
+            
             if "Đang tải" in status_text:
-                status_text = f"[{line_number}] {status_text}"
+                status_text = f"{line_prefix} {status_text}"
                 
                 # Parse thông tin fragment từ status_text
                 self.parse_and_display_progress(status_text, line_number)
             elif "Hoàn tất" in status_text:
-                status_text = f"[{line_number}] {status_text}"
+                status_text = f"{line_prefix} {status_text}"
                 # Xóa thông tin fragment khi hoàn tất
                 self.clear_progress_display()
             elif "Lỗi" in status_text:
-                status_text = f"[{line_number}] {status_text}"
+                status_text = f"{line_prefix} {status_text}"
                 # Xóa thông tin fragment khi có lỗi
                 self.clear_progress_display()
+            elif "Sử dụng cookie" in status_text:
+                status_text = f"{line_prefix} {status_text}"
+            elif "Sử dụng ffmpeg" in status_text:
+                status_text = f"{line_prefix} {status_text}"
+            elif "Chế độ" in status_text:
+                status_text = f"{line_prefix} {status_text}"
             
             self.status_label.config(text=status_text, fg=color)
 
         try:
-            download_video(url, output_folder, cookie_file, status_callback=update_status, optimize_mode=optimize_mode)
+            download_video(url, output_folder, cookie_file, status_callback=update_status, optimize_mode=optimize_mode, max_retries=3)
         except Exception as e:
+            line_prefix = f"[{line_number:2d}]"
             update_status(f"❌ Lỗi: {e}", "red")
         finally:
             self.active_downloads -= 1
@@ -505,9 +576,12 @@ class VideoDownloaderApp(tk.Tk):
         
         if invalid_urls:
             error_msg = "Các URL sau không phải OneDrive/SharePoint hợp lệ:\n"
-            for i, url in enumerate(invalid_urls, 1):
-                formatted_url = self.format_url_for_display(url, i)
-                error_msg += f"{formatted_url}\n"
+            error_msg += "─" * 50 + "\n"  # Separator line
+            for i, url in enumerate(onedrive_urls, 1):
+                if url in invalid_urls:
+                    formatted_url = self.format_url_for_display(url, i)
+                    error_msg += f"{formatted_url}\n"
+            error_msg += "─" * 50  # Bottom separator
             messagebox.showerror("URL không hợp lệ", error_msg)
             return
 
@@ -522,13 +596,18 @@ class VideoDownloaderApp(tk.Tk):
         # Xóa thông tin tiến trình cũ
         self.clear_progress_display()
         
-        # Hiển thị danh sách URL với số thứ tự
+        # Hiển thị danh sách URL với số thứ tự rõ ràng
         url_list = []
         for i, url in enumerate(onedrive_urls, 1):
             formatted_url = self.format_url_for_display(url, i)
             url_list.append(formatted_url)
         
-        status_text = f"⏳ Đang tải {len(onedrive_urls)} file từ OneDrive/SharePoint:\n" + "\n".join(url_list)
+        # Tạo status text với định dạng rõ ràng hơn
+        status_text = f"⏳ Đang tải {len(onedrive_urls)} file từ OneDrive/SharePoint:\n"
+        status_text += "─" * 50 + "\n"  # Separator line
+        status_text += "\n".join(url_list)
+        status_text += "\n" + "─" * 50  # Bottom separator
+        
         self.onedrive_status_label.config(text=status_text, fg="#e67e22")
         self.active_onedrive_downloads = len(onedrive_urls)
         
@@ -540,16 +619,18 @@ class VideoDownloaderApp(tk.Tk):
         """Chạy tải file OneDrive/SharePoint trong thread riêng"""
         def update_status(status_text, color="#e67e22"):
             # Thêm số thứ tự vào thông báo trạng thái
+            line_prefix = f"[{line_number:2d}]"
+            
             if "Đang tải" in status_text:
-                status_text = f"[{line_number}] {status_text}"
+                status_text = f"{line_prefix} {status_text}"
             elif "Hoàn tất" in status_text:
-                status_text = f"[{line_number}] {status_text}"
+                status_text = f"{line_prefix} {status_text}"
             elif "Lỗi" in status_text:
-                status_text = f"[{line_number}] {status_text}"
+                status_text = f"{line_prefix} {status_text}"
             elif "Đang kiểm tra" in status_text:
-                status_text = f"[{line_number}] {status_text}"
+                status_text = f"{line_prefix} {status_text}"
             elif "Phát hiện" in status_text:
-                status_text = f"[{line_number}] {status_text}"
+                status_text = f"{line_prefix} {status_text}"
             
             self.onedrive_status_label.config(text=status_text, fg=color)
 
@@ -557,6 +638,7 @@ class VideoDownloaderApp(tk.Tk):
             # Sử dụng yt-dlp để tải file từ OneDrive/SharePoint
             self.download_onedrive_file(onedrive_url, output_folder, cookie_file, update_status)
         except Exception as e:
+            line_prefix = f"[{line_number:2d}]"
             update_status(f"❌ Lỗi: {e}", "red")
         finally:
             self.active_onedrive_downloads -= 1
@@ -699,7 +781,7 @@ class VideoDownloaderApp(tk.Tk):
         
         # Debug logging
         print(f"🔍 Debug: Kiểm tra URL: {url[:100]}...")
-        print(f"🔍 Debug: sharepoint.com in URL: {'sharepoint.com' in url_lower}")
+        print(f"�� Debug: sharepoint.com in URL: {'sharepoint.com' in url_lower}")
         print(f"🔍 Debug: :u:/r/ in URL: {':u:/r/' in url}")
         print(f"🔍 Debug: _layouts/15/onedrive.aspx in URL: {'_layouts/15/onedrive.aspx' in url_lower}")
         print(f"🔍 Debug: id= in URL: {'id=' in url_lower}")
@@ -2028,10 +2110,14 @@ class VideoDownloaderApp(tk.Tk):
         return f"{start}{middle}{end}"
     
     def format_url_for_display(self, url, line_number):
-        """Format URL for display in status messages"""
+        """Format URL for display in status messages with clear line numbers"""
+        # Tạo số thứ tự với định dạng đẹp
+        line_prefix = f"[{line_number:2d}]"
+        
         if len(url) > 60:
-            return f"{line_number}. {self.truncate_url(url, 60)}"
-        return f"{line_number}. {url}"
+            truncated_url = self.truncate_url(url, 60)
+            return f"{line_prefix} {truncated_url}"
+        return f"{line_prefix} {url}"
     
     def get_line_number(self, url):
         """Get the line number of a URL in the input text"""
@@ -2072,7 +2158,9 @@ class VideoDownloaderApp(tk.Tk):
                     total_frags = int(fragment_match.group(2))
                     remaining_frags = total_frags - current_frag
                     
-                    fragment_text = f"📊 Fragment: {current_frag}/{total_frags} (còn {remaining_frags})"
+                    # Thêm số thứ tự vào thông tin fragment
+                    line_prefix = f"[{line_number:2d}]"
+                    fragment_text = f"{line_prefix} 📊 Fragment: {current_frag}/{total_frags} (còn {remaining_frags})"
                     try:
                         self.fragment_progress_label.config(text=fragment_text, fg="#3b5998")
                     except Exception:
@@ -2092,16 +2180,19 @@ class VideoDownloaderApp(tk.Tk):
                 speed_match = re.search(r'Tốc độ:\s*([^|]+)', status_text)
                 eta_match = re.search(r'Còn lại:\s*([^|]+)', status_text)
                 
-                speed_text = ""
+                # Thêm số thứ tự vào thông tin speed/ETA
+                line_prefix = f"[{line_number:2d}]"
+                speed_text = f"{line_prefix} "
+                
                 if speed_match:
                     speed = speed_match.group(1).strip()
-                    speed_text = f"⚡ Tốc độ: {speed}"
+                    speed_text += f"⚡ Tốc độ: {speed}"
                 
                 if eta_match:
                     eta = eta_match.group(1).strip()
                     speed_text += f" | ⏱️ Còn lại: {eta}"
                 
-                if speed_text:
+                if speed_text and speed_text != f"{line_prefix} ":
                     try:
                         self.speed_eta_label.config(text=speed_text, fg="#27ae60")
                     except Exception:
@@ -2123,3 +2214,52 @@ class VideoDownloaderApp(tk.Tk):
                 self.speed_eta_label.config(text="")
             except Exception:
                 pass
+
+    def restore_default_cookie_paths(self):
+        """Khôi phục đường dẫn cookie file mặc định"""
+        default_cookie_path = r"C:\Users\HH\Downloads\video_downloader_tool_donev1\video_downloader_tool\moithuvemmo-my.sharepoint.com_cookies.txt"
+        
+        # Kiểm tra và khôi phục cho video download
+        if os.path.exists(default_cookie_path):
+            self.cookie_entry.delete(0, tk.END)
+            self.cookie_entry.insert(0, default_cookie_path)
+            self.use_cookies.set(True)
+            self.cookie_entry.config(state="normal")
+            # Cập nhật UI state
+            self.toggle_cookie_entry()
+        else:
+            self.use_cookies.set(False)
+            self.cookie_entry.delete(0, tk.END)
+            self.cookie_entry.insert(0, "Cookie file không tìm thấy")
+            self.cookie_entry.config(state="disabled")
+        
+        # Kiểm tra và khôi phục cho OneDrive download
+        if os.path.exists(default_cookie_path):
+            self.onedrive_cookie_entry.delete(0, tk.END)
+            self.onedrive_cookie_entry.insert(0, default_cookie_path)
+            self.onedrive_use_cookies.set(True)
+            self.onedrive_cookie_entry.config(state="normal")
+            # Cập nhật UI state
+            self.toggle_onedrive_cookie_entry()
+        else:
+            self.onedrive_use_cookies.set(False)
+            self.onedrive_cookie_entry.delete(0, tk.END)
+            self.onedrive_cookie_entry.insert(0, "Cookie file không tìm thấy")
+            self.onedrive_cookie_entry.config(state="disabled")
+
+    def restore_default_onedrive_cookie_paths(self):
+        """Khôi phục đường dẫn cookie file mặc định cho OneDrive"""
+        default_onedrive_cookie_path = r"C:\Users\HH\Downloads\video_downloader_tool_donev1\video_downloader_tool\moithuvemmo-my.sharepoint.com_cookies.txt"
+        if os.path.exists(default_onedrive_cookie_path):
+            self.onedrive_cookie_entry.delete(0, tk.END)
+            self.onedrive_cookie_entry.insert(0, default_onedrive_cookie_path)
+            self.onedrive_use_cookies.set(True)
+            self.onedrive_cookie_entry.config(state="normal")
+            # Cập nhật UI state
+            self.toggle_onedrive_cookie_entry()
+        else:
+            # Fallback nếu file không tồn tại
+            self.onedrive_cookie_entry.delete(0, tk.END)
+            self.onedrive_cookie_entry.insert(0, "Cookie file không tìm thấy")
+            self.onedrive_use_cookies.set(False)
+            self.onedrive_cookie_entry.config(state="disabled")
